@@ -63,8 +63,9 @@ a{color:#ff6b6b; text-decoration:underline}
             <option>Intermediate</option>
             <option>Expert</option>
           </select>
-          <button id="startBtn" class="btn">Start</button>
+          <button id="startBtn" class="btn" onclick="try{startGame()}catch(e){console && console.error(e)}">Start</button>
         </div>
+        <div style="margin-top:6px;color:#c9c9c9;font-size:12px">Tip: You can leave the name blank — it will use “Player”.</div>
         <div style="width:100%;max-width:720px;margin-top:10px">
           <h3 style="margin:0 0 8px 0">High scores</h3>
           <table id="scoreTable" style="width:100%;border-collapse:collapse"><thead><tr style="color:#c9c9c9"><th style="text-align:left">#</th><th style="text-align:left">Player</th><th style="text-align:left">Score</th></tr></thead><tbody></tbody></table>
@@ -375,7 +376,7 @@ function backToTitle(){
 
 /* --- start & reset --- */
 function startGame(){
-  const n = $('#nameInput').value.trim(); if(!n){ alert('Enter your name'); return; }
+  let n = $('#nameInput').value.trim(); if(!n){ n = 'Player'; }
   player = n; level = $('#levelSelect').value || 'Beginner'; highScore = parseInt(localStorage.getItem('phishbait_highscore_'+player)||'0',10) || 0;
   deck = pickRound(); idx = 0; score = 0; correct = 0; wrong = 0; answers = [];
   renderHUD(); renderHistory(); renderEmail(); buildHighTable();
