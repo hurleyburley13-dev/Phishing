@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PhishBait — Spot phishing emails (Alarm Monitoring)</title>
+<style>
+:root{--bg:#070707;--panel:#0e0e0e;--muted:#a3a3a3;--text:#f3f3f3;--accent:#ff2d2d;--accent-2:#b30000;--good:#22c55e;--bad:#ff3b30;--border:#1e1e1e}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--text);background:#060606}
+.container{max-width:1100px;margin:24px auto;padding:18px}
+.panel{background:linear-gradient(180deg,#0f0f0f,#070707);border:1px solid var(--border);border-radius:12px;padding:12px}
+#titleCard{display:grid;gap:14px;justify-items:center;padding:28px 22px;border-radius:12px}
+#titleLogo{height:80px}
+.gameTitle{font-size:28px;margin:0}
+.setupRow{display:grid;grid-template-columns:1fr 180px 120px;gap:10px;width:100%;max-width:720px}
+input,select,button{padding:10px;border-radius:10px;border:1px solid #222;background:#0b0b0b;color:var(--text)}
+button{cursor:pointer}
+.header{display:flex;justify-content:space-between;align-items:center;margin:12px 0}
+.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px;border-radius:8px;background:#0b0b0b;margin-bottom:8px}
+.stat{background:#0b0b0b;padding:8px;border-radius:8px;border:1px solid var(--border)}
+.label{color:var(--muted);font-size:12px}
+.value{font-weight:700}
+.progress{height:10px;background:#0b0b0b;border-radius:8px;overflow:hidden}
+.bar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),#ff6b6b)}
+.split{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+@media (max-width:900px){.split{grid-template-columns:1fr}}
+.email-top{display:flex;gap:12px;align-items:center;padding:12px;border-bottom:1px solid var(--border)}
+.avatar{width:44px;height:44px;border-radius:50%;background:#111;display:grid;place-items:center;font-weight:800}
+.subject{font-size:18px;font-weight:700}
+.meta{color:#c9c9c9;font-size:13px}
+.email-header{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border-bottom:1px dashed var(--border);background:#090909}
+.email-body{padding:16px;line-height:1.6}
+a{color:#ff6b6b; text-decoration:underline}
+.actions{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border);background:#0a0a0a;border-radius:0 0 12px 12px}
+.btn{padding:10px 12px;border-radius:8px;border:1px solid #2a2a2a;background:#121212;color:var(--text);cursor:pointer}
+.btn.bad{background:#2b0808}
+.btn.good{background:#082b12}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.hist{max-height:420px;overflow:auto}
+.hist-item{display:flex;gap:8px;align-items:center;padding:8px;border-bottom:1px dashed var(--border)}
+.chip{background:#0b0b0b;padding:6px 8px;border-radius:999px;border:1px solid var(--border)}
+.tooltip{position:fixed;pointer-events:none;background:#0b0b0b;border:1px solid #3a0f0f;padding:6px 8px;border-radius:6px;font-size:12px;color:#f0cccc;box-shadow:0 6px 24px rgba(0,0,0,.45);z-index:1000;opacity:0;transform:translateY(6px);transition:opacity .08s,transform .08s}
+.tooltip.show{opacity:1;transform:translateY(0)}
+.explain{margin:12px;padding:10px;border-radius:8px;background:#0b0b0b;border:1px solid var(--border)}
+.explain h4{margin:6px 0}
+.outline-good{outline:2px solid var(--good) !important}
+.outline-bad{outline:2px solid var(--bad) !important}
+#resultBanner{display:none;padding:10px;border-radius:8px;margin-bottom:8px;font-weight:700}
+#completionPanel{display:none;padding:16px;border-radius:10px;background:linear-gradient(180deg,#0f0f0f,#070707);border:1px solid var(--border);margin-top:12px}
+</style>
+</head>
+<body>
+  <div class="container">
+    <section id="titleScreen" class="panel">
+      <div id="titleCard">
+        <img id="titleLogo" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='80'><rect width='100%' height='100%' fill='%23b30000'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='36' fill='white'>AW</text></svg>" alt="Alarm Watch logo">
+        <h1 class="gameTitle"><span style="color:var(--accent)">PhishBait</span> — Spot Phishing Emails<br><span style="font-size:14px;color:#c9c9c9">Alarm Monitoring Edition</span></h1>
+        <div class="setupRow">
+          <input id="nameInput" type="text" placeholder="Enter your name" aria-label="Player name">
+          <select id="levelSelect" aria-label="Difficulty level">
+            <option>Beginner</option>
+            <option>Intermediate</option>
+            <option>Expert</option>
+          </select>
+          <button id="startBtn" class="btn">Start</button>
+        </div>
+        <div style="width:100%;max-width:720px;margin-top:10px">
+          <h3 style="margin:0 0 8px 0">High scores</h3>
+          <table id="scoreTable" style="width:100%;border-collapse:collapse"><thead><tr style="color:#c9c9c9"><th style="text-align:left">#</th><th style="text-align:left">Player</th><th style="text-align:left">Score</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <div id="gamePanel" class="panel" style="display:none;margin-top:12px">
+      <header class="header">
+        <div class="brand"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='36'><rect width='100%' height='100%' fill='%23b30000'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='18' fill='white'>AW</text></svg>" alt="logo" style="height:36px"><div class="badge">PhishBait</div></div>
+        <div id="playerInfo" class="chip">No player</div>
+      </header>
+
+      <div class="hud" role="status">
+        <div class="stat"><div class="label">Player</div><div class="value" id="hudPlayer">—</div></div>
+        <div class="stat"><div class="label">Score</div><div class="value" id="hudScore">0</div></div>
+        <div class="stat"><div class="label">Correct</div><div class="value" id="hudCorrect">0</div></div>
+        <div class="stat"><div class="label">Wrong</div><div class="value" id="hudWrong">0</div></div>
+      </div>
+      <div class="progress"><div id="bar" class="bar" style="width:0%"></div></div>
+
+      <div class="split" style="margin-top:12px">
+        <main>
+          <section class="panel" style="padding:0">
+            <div class="email-top">
+              <div class="avatar" id="fromAvatar">AW</div>
+              <div>
+                <div class="subject" id="emailSubjectTop">—</div>
+                <div class="meta" id="emailMetaLine">From — • To you • <span id="emailTimeTop">—</span></div>
+              </div>
+            </div>
+            <div class="email-header">
+              <div><strong>From</strong><div id="emailFrom">—</div></div>
+              <div><strong>Subject</strong><div id="emailSubject">—</div></div>
+              <div><strong>Received</strong><div id="emailReceived">—</div></div>
+              <div><strong>Level</strong><div id="emailLevel">—</div></div>
+            </div>
+            <div id="emailBody" class="email-body">—</div>
+
+            <div id="resultBanner" role="status"></div>
+
+            <div id="explainBox" class="explain" hidden>
+              <h4 id="explainCorrectHeading">Why is this correct?</h4>
+              <ul id="explainCorrectList" style="margin:0;padding-left:18px;color:#e8e8e8"></ul>
+              <h4 id="explainPhishHeading">Why is this phishing?</h4>
+              <ul id="explainPhishList" style="margin:0;padding-left:18px;color:#e8e8e8"></ul>
+            </div>
+
+            <div class="actions">
+              <button id="btnPhish" class="btn bad">PHISH</button>
+              <button id="btnSafe" class="btn good">SAFE</button>
+              <div style="flex:1"></div>
+              <button id="btnPrev" class="btn" disabled>Previous</button>
+              <button id="btnNext" class="btn" disabled>Next</button>
+              <button id="btnReset" class="btn">Reset</button>
+            </div>
+          </section>
+        </main>
+        <aside>
+          <div class="card" style="padding:12px;margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="chip">High score: <strong id="highScore">0</strong></div>
+              <div class="chip">Round <span id="roundPos">0</span>/10</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="chip" style="margin-bottom:8px">History</div>
+            <div id="history" class="hist"></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <div id="completionPanel" class="panel">
+      <div id="completionSummary" style="font-weight:700;margin-bottom:8px">—</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="btnTrySame" class="btn">Try this difficulty again</button>
+        <button id="btnTryDifferent" class="btn">Try a different difficulty</button>
+        <div style="flex:1"></div>
+        <button id="btnBackToTitle" class="btn">Back to main menu</button>
+      </div>
+    </div>
+
+    <footer style="margin-top:12px;color:var(--muted);font-size:12px">Black & Red theme • Links never navigate</footer>
+  </div>
+
+  <div id="tooltip" class="tooltip" role="tooltip" aria-hidden="true"></div>
+
+<script>
+/* --- dataset --- */
+const DATA = {
+  Beginner:[
+    {id:'b1',level:'Beginner',from:'Dispatch <dispatch@monitoringstation.co.nz>',subject:'Test alarm: Door contact restored',received:'2025-09-18 07:14',phish:false,body:'Hi team, the rear door contact at Site 4821 restored at 07:12. No action required.<br><br>View event in portal: <a href="#" data-href="https://portal.monitoringstation.co.nz/events/4821">portal.monitoringstation.co.nz/events/4821</a>',explain:['Legitimate internal sender and domain','Event link goes to the official portal domain']},
+    {id:'b2',level:'Beginner',from:'TELCO Billing <billing@telc0.nz>',subject:'Invoice overdue - pay now',received:'2025-09-16 16:02',phish:true,body:'Your August invoice is overdue. Pay immediately: <a href="#" data-href="http://pay.telc0.nz-login.com">pay portal</a>',explain:['Lookalike domain telc0 (zero) and subdomain login-com','HTTP (not HTTPS) on the payment link']},
+    {id:'b3',level:'Beginner',from:'Rostering <shifts@monitoringstation.co.nz>',subject:'Shift swap request - Friday night',received:'2025-09-12 09:21',phish:false,body:'Can anyone cover Friday 22:00-06:00? Reply in Teams or confirm here: <a href="#" data-href="https://intranet.monitoringstation.co.nz/rostering">intranet rostering</a>',explain:['Internal rostering address','HTTPS intranet link']},
+    {id:'b4',level:'Beginner',from:'Alarm Cloud <no-reply@alarmcloud.support>',subject:'New voicemail from Gate Intercom',received:'2025-09-10 13:17',phish:true,body:'Voice message (28s). Download MP3: <a href="#" data-href="https://alarmcloud.support.voicemail.gq/file.mp3">alarmcloud voicemail</a>',explain:['Weird multi-level domain with .gq TLD often abused','Unexpected MP3 download']},
+    {id:'b5',level:'Beginner',from:'Accounts Payable <ap@monitoringstation.co.nz>',subject:'September supplier remittance',received:'2025-09-09 08:02',phish:false,body:'Attached is the September remittance. Vendor list visible at <a href="#" data-href="https://portal.monitoringstation.co.nz/vendors">vendor portal</a>.',explain:['Normal AP message content','Official portal host']},
+    {id:'b6',level:'Beginner',from:'Microsoft MFA <no-reply@m1crosoft.com>',subject:'Reset your authenticator now',received:'2025-09-07 18:45',phish:true,body:'We detected suspicious activity. Re-enrol here: <a href="#" data-href="https://secure-microsoft.com.re-enrol.id/">https://secure-microsoft.com…</a>',explain:['Misspelled m1crosoft in sender','Suspicious multi-subdomain URL not owned by Microsoft']},
+    {id:'b7',level:'Beginner',from:'Courier <notify@nzpost.co.nz>',subject:'Parcel for Monitoring Station',received:'2025-09-04 10:01',phish:false,body:'Delivery ETA today. Track at <a href="#" data-href="https://www.nzpost.co.nz/tools/tracking">NZ Post tracking</a>.',explain:['Known courier domain','HTTPS link to official site']},
+    {id:'b8',level:'Beginner',from:'IT Support <support@monitoringstation.co.nz>',subject:'Password expiry in 1 day',received:'2025-09-03 07:59',phish:true,body:'Reset here: <a href="#" data-href="http://monitoring-station.co.nz.it-service-reset.com">Password Center</a>',explain:['Hyphenated lookalike sending domain not our primary','Reset link goes to unrelated domain']},
+    {id:'b9',level:'Beginner',from:'Vendor - Sensors Ltd <invoices@sensors-ltd.co.nz>',subject:'Invoice INV-88421',received:'2025-09-02 15:31',phish:false,body:'Invoice available in supplier portal <a href="#" data-href="https://suppliers.sensors-ltd.co.nz/login">suppliers.sensors-ltd.co.nz/login</a>',explain:['Expected vendor relationship','Consistent vendor domain']},
+    {id:'b10',level:'Beginner',from:'Security Team <soc@monitoringstation.co.nz>',subject:'SEV-2 false alarm pattern addressed',received:'2025-08-29 11:12',phish:false,body:'We tuned the motion filter for two sites. Change log: <a href="#" data-href="https://intranet.monitoringstation.co.nz/changelog">intranet changelog</a>',explain:['Internal SOC sender','Intranet link over HTTPS'] }
+  ],
+  Intermediate:[
+    {id:'i1',level:'Intermediate',from:'Security Team <soc@monitoringstation.co.nz>',subject:'Unusual login to portal (info only)',received:'2025-09-20 06:31',phish:false,body:'FYI: We saw a login for your account from Hamilton at 06:28. If this was you, no action. If not you, open a ticket in <a href="#" data-href="https://intranet.monitoringstation.co.nz/it-support">IT Support</a>.',explain:['Uses our official @monitoringstation.co.nz domain','No direct “reset password now” link; directs to internal IT page']},
+    {id:'i2',level:'Intermediate',from:'Parking <parking@aucklandairport.co.nz>',subject:'Receipt: Staff parking top-up',received:'2025-09-18 09:17',phish:false,body:'Your receipt is available in your airport account: <a href="#" data-href="https://my.aucklandairport.co.nz/receipts">my.aucklandairport.co.nz/receipts</a>',explain:['Recognisable sender and domain','No request for credentials by email']},
+    {id:'i3',level:'Intermediate',from:'Microsoft 365 <no-reply@micros0ft-security.com>',subject:'Verify your account ownership',received:'2025-09-15 20:13',phish:true,body:'We need to verify your account. Continue here: <a href="#" data-href="https://protection.micros0ft-security.com/verify">verification portal</a>',explain:['micros0ft uses a zero (0) in the domain','Not an official Microsoft domain']},
+    {id:'i4',level:'Intermediate',from:'Accounts <accounts@monitoringstation.co.nz>',subject:'Xero: August reconciliation complete',received:'2025-09-14 12:03',phish:false,body:'Reconciliation complete. See summary: <a href="#" data-href="https://intranet.monitoringstation.co.nz/finance/xero">Finance portal</a>',explain:['Internal finance address','HTTPS intranet link']},
+    {id:'i5',level:'Intermediate',from:'Courier Update <notify@nzpost.co.nz>',subject:'Re-delivery fee required',received:'2025-09-13 09:11',phish:true,body:'We missed your delivery. Pay re-delivery fee now: <a href="#" data-href="http://nzpost.co.nz.redelivery-fee.com">nzpost re-delivery</a>',explain:['Link goes to unrelated domain with nzpost inside','Uses insecure http://']},
+    {id:'i6',level:'Intermediate',from:'HR <people@monitoringstation.co.nz>',subject:'Updated leave policy',received:'2025-09-11 08:00',phish:false,body:'We updated the leave policy. Read here: <a href="#" data-href="https://intranet.monitoringstation.co.nz/policies/leave">policy page</a>',explain:['Official domain and intranet link','Normal internal comms tone']},
+    {id:'i7',level:'Intermediate',from:'IT Service Desk <support@monitoringstation.co.nz>',subject:'Device enrollment reminder',received:'2025-09-10 10:22',phish:false,body:'Please complete the device enrollment by Friday. Steps: <a href="#" data-href="https://intranet.monitoringstation.co.nz/it/enrol">intranet enrol</a>',explain:['Internal sender','No external website used']},
+    {id:'i8',level:'Intermediate',from:'Voicemail <no-reply@vmail-monstation.gq>',subject:'Voice message (47s)',received:'2025-09-09 07:45',phish:true,body:'Listen to the message: <a href="#" data-href="https://vmail-monstation.gq/file.mp3">voicemail</a>',explain:['Uncommon .gq TLD','Unexpected audio download']},
+    {id:'i9',level:'Intermediate',from:'Cameras NZ <orders@camera-supplies.co.nz>',subject:'Order shipped: 4x dome cams',received:'2025-09-07 13:18',phish:false,body:'Tracking information: <a href="#" data-href="https://www.nzpost.co.nz/tools/tracking">NZ Post</a>',explain:['Known vendor and courier domains']},
+    {id:'i10',level:'Intermediate',from:'IT Admin <it-admin@monitoring-station.co.nz>',subject:'VPN certificate expired - update now',received:'2025-09-05 19:31',phish:true,body:'Download the new cert: <a href="#" data-href="http://vpn.monitoring-station.co.nz.update-now.info/cert.crt">vpn update</a>',explain:['Hyphenated fake company domain in sender','Download link is not our domain and uses http://'] }
+  ],
+  Expert:[
+    {id:'e1',level:'Expert',from:'Security Alerts <alerts@monitoringstation.co.nz>',subject:'DKIM alignment failed for external sender (report)',received:'2025-09-22 04:50',phish:false,body:'Heads-up: We rejected a batch due to failed authentication. Report is on the intranet: <a href="#" data-href="https://intranet.monitoringstation.co.nz/security/dkim">DKIM report</a>',explain:['Internal alerts address','Points to intranet report, not to an external action link']},
+    {id:'e2',level:'Expert',from:'Microsoft Teams <no-reply@microsoft.com>',subject:'You have 2 missed messages',received:'2025-09-21 21:08',phish:false,body:'Open Teams: <a href="#" data-href="https://teams.microsoft.com">teams.microsoft.com</a>',explain:['Official microsoft.com domain']},
+    {id:'e3',level:'Expert',from:'ServiceNow <no-reply@servicenow-support.co>',subject:'Ticket requires your password',received:'2025-09-20 15:42',phish:true,body:'Please confirm your password to view the ticket: <a href="#" data-href="https://servicenow-support.co/login">ServiceNow</a>',explain:['Not an official servicenow domain (.co lookalike)','Requests your password via email link, which is a red flag']},
+    {id:'e4',level:'Expert',from:'CEO <ceo@monitoringstation.co.nz>',subject:'All staff: emergency gift card purchase',received:'2025-09-19 07:23',phish:false,body:'This is a trick item: If this actually came from our domain, you should still verify by phone before acting. But for this game we only mark emails from @monitoringstation.co.nz as legitimate. Do not buy gift cards from emails.',explain:['Educational: real-life CEO fraud often spoofs addresses; in the game, trust @monitoringstation.co.nz but still apply caution in real life']},
+    {id:'e5',level:'Expert',from:'Service Desk <support@monitor1ngstation.co.nz>',subject:'Urgent: MFA disabled',received:'2025-09-18 18:01',phish:true,body:'Your MFA was disabled. Re-enable here: <a href="#" data-href="https://mfa.monitor1ngstation.co.nz-recover.net">recover MFA</a>',explain:['monitor1ngstation swaps the “i” for a “1”','Link goes to unrelated domain with our name inside']},
+    {id:'e6',level:'Expert',from:'Vendor — CCTV Hub <billing@cctvhub.co.nz>',subject:'Credit note CN-22014',received:'2025-09-16 11:05',phish:false,body:'Credit note available in portal: <a href="#" data-href="https://portal.cctvhub.co.nz/login">vendor portal</a>',explain:['Recognised vendor','HTTPS portal']},
+    {id:'e7',level:'Expert',from:'Microsoft <no-reply@microsoft.com>',subject:'Security notification',received:'2025-09-15 06:59',phish:true,body:'Resolve here: <a href="#" data-href="https://microsoft.com.security-check.app">microsoft.com.security-check.app</a>',explain:['The visible text includes microsoft.com but the true host is security-check.app (mismatch)']},
+    {id:'e8',level:'Expert',from:'LENEL S2 <no-reply@lenel-s2.com>',subject:'Panel offline at Site 3012',received:'2025-09-13 03:26',phish:false,body:'Alarm panel offline at 03:24. Status page: <a href="#" data-href="https://status.lenel-s2.com">status.lenel-s2.com</a>',explain:['Known manufacturer domain']},
+    {id:'e9',level:'Expert',from:'Payroll <payroll@monitoringstation.co.nz>',subject:'Payslip available',received:'2025-09-12 08:05',phish:false,body:'Open your payslip: <a href="#" data-href="https://intranet.monitoringstation.co.nz/payroll">Payroll on intranet</a>',explain:['Internal payroll address','Intranet link']},
+    {id:'e10',level:'Expert',from:'Google <noreply@google.com>',subject:'Unusual sign-in blocked',received:'2025-09-10 21:51',phish:true,body:'Review activity: <a href="#" data-href="http://accounts.google.com.security-check.help">accounts.google.com…</a>',explain:['Looks like a Google link but the true host ends with security-check.help','Insecure http://'] }
+  ]
+};
+
+/* --- state --- */
+const ROUND_SIZE = 10;
+const SCORE_CORRECT = 100, SCORE_WRONG = -50;
+let player=''; let highScore=0; let level='Beginner'; let deck=[]; let idx=0; let score=0, correct=0, wrong=0; let answers=[];
+
+/* --- helpers --- */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+function shuffle(arr){ return arr.map(x=>[Math.random(),x]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]); }
+function pickRound(){ const pool = (DATA[level]||[]); return shuffle(pool).slice(0,ROUND_SIZE); }
+function updateProgress(){ const pct = Math.round(((idx+1)/ROUND_SIZE)*100); const bar = $('#bar'); if(bar) bar.style.width = pct+'%'; $('#roundPos').textContent = String(idx+1); }
+function getHost(url){ try{return new URL(url).host;}catch{return '';} }
+function looksPhishyLink(a){ try{ const shown=(a.textContent||'').replace(/^https?:\\/\\//,'').split('/')[0]; const real=getHost(a.dataset.href||''); return shown && real && shown.toLowerCase()!==real.toLowerCase(); }catch{return false;} }
+
+/* --- highscore (localStorage) --- */
+function buildHighTable(){
+  const tb = $('#scoreTable tbody'); if(!tb) return; tb.innerHTML='';
+  const rows=[];
+  for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('phishbait_highscore_')) rows.push({name:k.replace('phishbait_highscore_',''),score:parseInt(localStorage.getItem(k)||'0',10)||0}); }
+  rows.sort((a,b)=>b.score-a.score);
+  if(rows.length===0){ const tr=document.createElement('tr'); tr.innerHTML='<td>—</td><td>No scores yet</td><td>—</td>'; tb.appendChild(tr); return; }
+  rows.slice(0,10).forEach((r,i)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${r.name}</td><td>${r.score}</td>`; tb.appendChild(tr); });
+}
+
+function saveHigh(){
+  if(!player) return; const k='phishbait_highscore_'+player; const old = parseInt(localStorage.getItem(k)||'0',10); if(score>old){ localStorage.setItem(k,String(score)); highScore=score; renderHUD(); buildHighTable(); }
+}
+
+/* --- render --- */
+function renderHUD(){ $('#hudPlayer').textContent = player||'—'; $('#hudScore').textContent = String(score); $('#hudCorrect').textContent = String(correct); $('#hudWrong').textContent = String(wrong); $('#playerInfo').textContent = `Player: ${player||'—'}`; $('#highScore').textContent = String(highScore); }
+
+function clearHighlights(){
+  const sender = document.getElementById('emailFrom'); if(sender) sender.style.outline='none';
+  $$('#emailBody a').forEach(a=>a.style.outline='none');
+}
+
+function renderHistory(){
+  const el = $('#history'); if(!el) return; el.innerHTML='';
+  deck.forEach((it,i)=>{
+    const ans = answers[i];
+    const div = document.createElement('div'); div.className='hist-item';
+    const dot = document.createElement('div'); dot.style.width='10px'; dot.style.height='10px'; dot.style.borderRadius='50%'; dot.style.background = ans? (ans.correct? 'var(--good)' : 'var(--bad)') : 'transparent';
+    const txt = document.createElement('div'); txt.innerHTML = `<div style="font-weight:700">${i+1}. ${it.subject}</div><div style="font-size:12px;color:#c9c9c9">${it.from}</div>`;
+    div.appendChild(dot); div.appendChild(txt);
+    div.addEventListener('click', ()=>{ idx = i; renderEmail(); });
+    el.appendChild(div);
+  });
+}
+
+/* --- render an email --- */
+function renderEmail(){
+  const item = deck[idx]; if(!item) return;
+  $('#emailFrom').textContent = item.from;
+  $('#emailSubjectTop').textContent = item.subject;
+  $('#emailSubject').textContent = item.subject;
+  $('#emailMetaLine').innerHTML = `From <strong>${item.from}</strong> • To <strong>${player||'you'}</strong> • <span>${item.received}</span>`;
+  $('#emailReceived').textContent = item.received;
+  $('#emailLevel').textContent = item.level || item.level || '—';
+  const av = $('#fromAvatar'); if(av){ const m = (item.from.match(/^(.*?)\s*</)||[])[1] || item.from; av.textContent = m.split(/\s+/).map(s=>s[0]||'').join('').slice(0,2).toUpperCase(); }
+  $('#emailBody').innerHTML = item.body;
+  clearHighlights();
+  $('#explainBox').hidden = true; $('#explainCorrectList').innerHTML = ''; $('#explainPhishList').innerHTML = '';
+  const rb = $('#resultBanner'); if(rb){ rb.style.display = 'none'; rb.textContent = ''; }
+  $('#btnPrev').disabled = idx===0;
+  $('#btnNext').disabled = !(answers[idx] && (answers[idx].choice==='PHISH' || answers[idx].choice==='SAFE')) || idx===ROUND_SIZE-1;
+  updateProgress();
+  $$('#emailBody a').forEach(a=>{ a.addEventListener('click', e=>e.preventDefault()); a.addEventListener('mouseenter', e=>{ showTip(a.dataset.href||'Unknown', e.clientX, e.clientY); }); a.addEventListener('mousemove', e=>{ showTip(a.dataset.href||'Unknown', e.clientX, e.clientY); }); a.addEventListener('mouseleave', hideTip); });
+}
+
+/* --- plain-language explanation helpers --- */
+function addSimple(listEl, text){ const li=document.createElement('li'); li.textContent = text; listEl.appendChild(li); }
+
+function humanExplain(item, ans){
+  const correctList = $('#explainCorrectList'); const phishList = $('#explainPhishList');
+  (Array.isArray(item.explain)?item.explain:[]).forEach(e=>{
+    if(/domain|sender|address/i.test(e)) addSimple(phishList, e + ' — this means the email came from an address that looks unusual or does not match who it claims to be.');
+    else if(/link|portal|url|subdomain|host/i.test(e)) addSimple(phishList, e + ' — check the link carefully: it might look like a familiar site but actually goes somewhere else.');
+    else if(/http:/i.test(e)) addSimple(phishList, e + ' — the link uses HTTP instead of HTTPS (not secure), which is suspicious for things like payments or passwords.');
+    else addSimple(phishList, e);
+  });
+
+  $$('#emailBody a').forEach(a=>{
+    const textHost = (a.textContent||'').replace(/^https?:\\/\\//,'').split('/')[0];
+    const realHost = getHost(a.dataset.href||'');
+    if(textHost && realHost && textHost.toLowerCase()!==realHost.toLowerCase()){
+      addSimple(phishList, `The link text says "${textHost}" but the real destination is "${realHost}". Scammers try to hide the real address like this.`);
+      a.style.outline = '2px solid var(--bad)';
+    }
+    if(/http:\\/\\//i.test(a.dataset.href||'')){
+      addSimple(phishList, 'The link goes to a site that starts with http:// and not https:// — that means data sent there may not be encrypted. Avoid entering passwords or payment details on such links.');
+      a.style.outline = '2px solid var(--bad)';
+    }
+    const oddTLD = realHost.split('.').pop();
+    if(/^(cc|gq|cf|tk)$/.test(oddTLD)){
+      addSimple(phishList, `The website uses an uncommon domain ending (.${oddTLD}) which is often used by scammers because registrations are cheap.`);
+      a.style.outline = '2px solid var(--bad)';
+    }
+  });
+
+  const sender = (item.from||'').toLowerCase();
+  if(/m1crosoft|microsoft/i.test(sender) && /m1crosoft/.test(sender)){
+    addSimple(phishList, 'The sender name looks like Microsoft but the email address uses a misspelling (e.g. an "1" instead of an "i"), which is a trick attackers use.');
+  }
+  if(/no-reply|no_reply/i.test(sender)) addSimple(phishList, 'Automated sender addresses (no-reply) are common, but check the actual domain after the @ to be sure it belongs to the company.');
+
+  if(ans.correct){
+    addSimple(correctList, `Your answer (${ans.choice}) is correct because the signs above point to the expected behaviour.`);
+    addSimple(correctList, 'If it was marked SAFE: the sender and links match known company addresses or internal systems, and there is nothing asking you to enter passwords or pay money online.');
+    addSimple(correctList, 'If it was marked PHISH: the email contains clear signs like fake links, misspelled domains, or unexpected requests for credentials or payment.');
+  } else {
+    addSimple(correctList, `Your answer (${ans.choice}) was not correct. Here is why the other choice is the right one:`);
+    if(ans.choice==='PHISH'){
+      addSimple(correctList, 'Although it looked suspicious, the sender and links match our internal/official systems and there is no request for credentials/payments. Over time you will learn to spot the small differences.');
+    } else {
+      addSimple(correctList, 'Although it looked legitimate, the email contains tricks such as mismatched link destinations, unusual domain names, or requests for passwords/payments which are red flags.');
+    }
+  }
+}
+
+/* --- explanations & highlights --- */
+function showExplanations(item){
+  const ans = answers[idx];
+  if(!ans) return;
+  $('#explainCorrectList').innerHTML=''; $('#explainPhishList').innerHTML='';
+  humanExplain(item, ans);
+  $('#explainBox').hidden = false;
+  clearHighlights();
+  const senderEl = $('#emailFrom');
+  const links = $$('#emailBody a');
+  if(ans.correct){ if(senderEl) senderEl.style.outline = '2px solid var(--good)'; links.forEach(a=>a.style.outline = '2px solid var(--good)'); }
+  else { if(senderEl) senderEl.style.outline = '2px solid var(--bad)'; }
+}
+
+/* --- answer handling --- */
+function answer(choice){
+  const item = deck[idx]; if(!item) return;
+  if(answers[idx]){ showExplanations(item); return; }
+  const correctAns = (choice === 'PHISH') === !!item.phish;
+  if(correctAns){ score += SCORE_CORRECT; correct++; }
+  else { score += SCORE_WRONG; wrong++; }
+  answers[idx] = { choice: choice, correct: correctAns };
+  renderHUD();
+  const banner = $('#resultBanner');
+  if(banner){ banner.style.display = 'block'; banner.className = ''; if(correctAns){ banner.classList.add('outline-good'); banner.style.background = 'rgba(34,197,94,0.12)'; banner.textContent = 'CORRECT — Good job!'; } else { banner.classList.add('outline-bad'); banner.style.background = 'rgba(255,59,48,0.08)'; banner.textContent = 'INCORRECT — Review below.'; } }
+  showExplanations(item);
+  $('#btnNext').disabled = idx === ROUND_SIZE-1;
+  renderHistory();
+  if(answers.filter(Boolean).length === ROUND_SIZE){ endRound(); saveHigh(); showCompletion(); }
+}
+
+/* --- navigation --- */
+function prev(){ if(idx>0){ idx--; renderEmail(); } }
+function next(){ if(idx<ROUND_SIZE-1){ idx++; renderEmail(); } }
+
+/* --- end round --- */
+function endRound(){
+  const h = $('#history'); if(!h) return;
+  const el = document.createElement('div'); el.className = 'hist-item';
+  el.innerHTML = '<strong>Final: ' + score + ' pts — ' + correct + '/' + ROUND_SIZE + '</strong><div style="font-size:12px;color:#c9c9c9">Level ' + level + '</div>';
+  h.appendChild(el);
+}
+
+/* --- completion UI --- */
+function showCompletion(){
+  $('#completionSummary').textContent = `Round complete — Score: ${score} pts — ${correct}/${ROUND_SIZE} correct (Level: ${level})`;
+  document.getElementById('completionPanel').style.display = 'block';
+  $('#gamePanel').style.display = 'none';
+}
+function tryAgainSame(){
+  deck = pickRound(); idx = 0; score = 0; correct = 0; wrong = 0; answers = [];
+  renderHUD(); renderHistory(); renderEmail(); document.getElementById('completionPanel').style.display = 'none'; $('#gamePanel').style.display = 'block';
+}
+function tryDifferent(){
+  document.getElementById('completionPanel').style.display = 'none'; $('#gamePanel').style.display = 'none'; $('#titleScreen').style.display = 'block'; $('#startBtn').disabled = false;
+}
+function backToTitle(){
+  document.getElementById('completionPanel').style.display = 'none'; $('#gamePanel').style.display = 'none'; $('#titleScreen').style.display = 'block'; $('#startBtn').disabled = false;
+}
+
+/* --- start & reset --- */
+function startGame(){
+  const n = $('#nameInput').value.trim(); if(!n){ alert('Enter your name'); return; }
+  player = n; level = $('#levelSelect').value || 'Beginner'; highScore = parseInt(localStorage.getItem('phishbait_highscore_'+player)||'0',10) || 0;
+  deck = pickRound(); idx = 0; score = 0; correct = 0; wrong = 0; answers = [];
+  renderHUD(); renderHistory(); renderEmail(); buildHighTable();
+  $('#titleScreen').style.display = 'none'; $('#gamePanel').style.display = 'block'; $('#startBtn').disabled = true;
+}
+
+function resetGame(){ deck = pickRound(); idx = 0; score = 0; correct = 0; wrong = 0; answers = []; renderHUD(); renderHistory(); renderEmail(); $('#startBtn').disabled = true; }
+
+/* --- tooltip --- */
+const tip = document.getElementById('tooltip');
+function showTip(text,x,y){ if(!tip) return; tip.textContent = text; tip.style.left = (x+12)+'px'; tip.style.top = (y+12)+'px'; tip.classList.add('show'); tip.setAttribute('aria-hidden','false'); }
+function hideTip(){ if(!tip) return; tip.classList.remove('show'); tip.setAttribute('aria-hidden','true'); }
+
+/* --- events --- */
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('btnPhish').addEventListener('click', function(){ answer('PHISH'); });
+document.getElementById('btnSafe').addEventListener('click', function(){ answer('SAFE'); });
+document.getElementById('btnPrev').addEventListener('click', prev);
+document.getElementById('btnNext').addEventListener('click', next);
+document.getElementById('btnReset').addEventListener('click', resetGame);
+document.getElementById('btnTrySame').addEventListener('click', tryAgainSame);
+document.getElementById('btnTryDifferent').addEventListener('click', tryDifferent);
+document.getElementById('btnBackToTitle').addEventListener('click', backToTitle);
+
+/* --- init --- */
+buildHighTable();
+</script>
+</body>
+</html>
